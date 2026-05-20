@@ -24,3 +24,4 @@ Adjust paths to match your setup.
 |---|---|
 | [building-modal-apps](./building-modal-apps) | Scaffold Modal.com Python apps using the thin-wrapper pattern: thin Modal endpoints around pure-Python services, TDD with smoke tests on a dev environment. |
 | [naming-things](./naming-things) | Choose precise, consistent names for variables, functions, types, and files. Based on Ousterhout's *A Philosophy of Software Design*, Chapter 14. |
+| [writing-documentation](./writing-documentation) | Write skimmable, well-written, broadly helpful technical docs. Includes templates for README, runbook, ADR, API reference, troubleshooting, deployment guide. |
