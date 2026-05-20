@@ -16,7 +16,7 @@ src/content/posts/<slug>/
 └── ...                 More components per archetype
 ```
 
-A post bundle is self-contained. Deleting the directory removes the prose, the components, and their styling atomically. Components that look reusable but only one post uses go inside the bundle. Components imported by two or more posts move to `src/components/` and become **shared primitives**.
+A post bundle is self-contained. Deleting the directory removes the prose, the components, and their styling atomically. Components that look reusable but only one post uses go inside the bundle. Components imported by two or more posts move out to your project's shared components directory and become **shared primitives**.
 
 ## Three archetypes
 

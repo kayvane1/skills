@@ -265,63 +265,192 @@ export function PhaseDiagram() {
 
 ## Interactive simulator
 
-User-driven state machine. Fire actions, observe state evolve, watch the log. Shape:
+User-driven state machine. Fire actions, observe state evolve, watch the log. The skeleton below is intentionally complete — copy it and replace the domain types with yours.
 
 ```tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type LogEntry = { id: number; tone: "info" | "hit" | "miss"; text: string };
+type LogTone = "info" | "hit" | "miss";
+type LogEntry = { id: number; tone: LogTone; text: string };
+
+type State = {
+  cache: Map<string, string>;
+  // …other domain fields
+};
+
+const LOG_TONE: Record<LogTone, string> = {
+  info: "text-[#f3f3f0]",
+  hit:  "text-[#b6f0a5]",
+  miss: "text-[#ffb454]",
+};
+
+const initialState = (): State => ({ cache: new Map() });
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function MySimulator() {
-  const [state, setState] = useState<{ /* domain state */ }>(/* initial */);
+  const [state, setState] = useState<State>(initialState);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [busy, setBusy] = useState(false);
-  const logIdRef = useRef(0);
+  const [speed, setSpeed] = useState(1);
+
+  // Ref mirror so async handlers can read the latest state without racing
+  // React's render cycle.
   const stateRef = useRef(state);
+  const logIdRef = useRef(0);
   useEffect(() => { stateRef.current = state; }, [state]);
+
+  const tick = useCallback(async (ms: number) => sleep(ms / speed), [speed]);
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id">) => {
     logIdRef.current += 1;
     setLog((prev) => [{ id: logIdRef.current, ...entry }, ...prev].slice(0, 50));
   }, []);
 
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const reset = useCallback(() => {
+    setState(initialState());
+    setLog([]);
+  }, []);
 
-  const runAction = useCallback(async (action: string) => {
+  const get = useCallback(async (key: string) => {
     if (busy) return;
     setBusy(true);
     try {
-      pushLog({ tone: "info", text: `${action} fired` });
-      await sleep(400);
-      // ...do work, mutate state, log results
+      pushLog({ tone: "info", text: `get ${key}` });
+      await tick(400);
+      const hit = stateRef.current.cache.has(key);
+      if (hit) {
+        pushLog({ tone: "hit", text: `hit ${key}` });
+      } else {
+        pushLog({ tone: "miss", text: `miss ${key} → compute` });
+        await tick(800);
+        setState((s) => ({
+          ...s,
+          cache: new Map(s.cache).set(key, `v_${key}_${Date.now() % 1000}`),
+        }));
+      }
     } finally {
       setBusy(false);
     }
-  }, [busy, pushLog]);
+  }, [busy, pushLog, tick]);
 
   return (
     <section
       className="not-prose my-12 rounded-3xl border border-black/10 bg-white p-7 pb-6 font-mono text-[12.5px] text-[color:var(--ink)] shadow-[0_22px_60px_-45px_rgba(20,20,19,0.4)]"
       aria-label="Simulator"
     >
-      {/* header, controls, board, event log — see CacheSimulator for full layout */}
+      {/* header */}
+      <header className="mb-6 flex items-start justify-between gap-6 border-b border-black/10 pb-5">
+        <div className="flex flex-col gap-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-[color:var(--ink-muted)]">
+            simulator
+          </span>
+          <h3 className="m-0 font-sans text-[19px] font-semibold tracking-[-0.01em]">
+            My state machine
+          </h3>
+        </div>
+      </header>
+
+      {/* controls */}
+      <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-black/10 pb-5">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)]">
+          speed
+        </span>
+        {[0.5, 1, 2].map((s) => (
+          <button
+            key={s}
+            type="button"
+            disabled={busy}
+            onClick={() => setSpeed(s)}
+            className={`rounded-full border border-black/20 bg-white px-2.5 py-[3px] font-mono text-[11px] disabled:opacity-45 ${
+              speed === s ? "bg-[color:var(--ink)]! text-white! border-[color:var(--ink)]!" : ""
+            }`}
+          >
+            {s}x
+          </button>
+        ))}
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => get("apple")}
+            className="rounded-lg border border-black/20 bg-white px-3 py-1.5 font-mono text-[11px] disabled:opacity-45"
+          >
+            get apple
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => get("banana")}
+            className="rounded-lg border border-black/20 bg-white px-3 py-1.5 font-mono text-[11px] disabled:opacity-45"
+          >
+            get banana
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={reset}
+            className="rounded-lg border border-dashed border-black/20 bg-white px-3 py-1.5 font-mono text-[11px] text-[color:var(--ink-muted)] disabled:opacity-45"
+          >
+            reset
+          </button>
+        </div>
+      </div>
+
+      {/* board — your domain visualisation goes here */}
+      <div className="mb-5 rounded-[0.85rem] border border-black/10 bg-black/[0.02] p-4">
+        {state.cache.size === 0 ? (
+          <div className="text-[11px] text-[color:var(--ink-muted)] opacity-60">empty</div>
+        ) : (
+          <ul className="list-none m-0 p-0 grid gap-1">
+            {Array.from(state.cache.entries()).map(([k, v]) => (
+              <li
+                key={k}
+                className="flex items-baseline justify-between border-b border-dashed border-black/10 py-1.5 text-[12px] last:border-b-0"
+              >
+                <code className="bg-transparent! p-0! font-mono text-[12px] text-[color:var(--ink)]!">
+                  {k}
+                </code>
+                <span className="text-[11.5px] text-[#2e7d32]">{v}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* event log */}
+      <div className="mt-5 max-h-[260px] overflow-y-auto rounded-[0.85rem] bg-[#0e0f11] px-4 py-3.5 text-[11.5px] leading-[1.6] text-[#f3f3f0]" aria-live="polite">
+        <div className="mb-2 flex items-center justify-between border-b border-dashed border-white/10 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/55">
+          <span>event stream</span>
+          <span className="text-[9.5px] opacity-60">latest first</span>
+        </div>
+        {log.length === 0 ? (
+          <p className="m-0 text-[11px] italic opacity-40">streaming output appears here</p>
+        ) : (
+          <ul className="list-none m-0 p-0 grid gap-[5px]">
+            {log.map((entry) => (
+              <li
+                key={entry.id}
+                className={`grid grid-cols-[1.85rem_1fr] items-baseline gap-2.5 ${LOG_TONE[entry.tone]}`}
+              >
+                <span className="rounded-[0.25rem] border border-white/10 px-1 py-[2px] text-center font-mono text-[9px] uppercase tracking-[0.16em] text-white/60">
+                  {entry.tone}
+                </span>
+                <span>{entry.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
 ```
 
-Patterns to copy from the cache simulator:
+Patterns worth understanding before you scale this up:
 
-- **`useRef` mirror of state** for inside-async-functions reads (otherwise you race the React render).
-- **`busy` lock** prevents double-fires.
-- **`sleep / tick`** with a speed multiplier so you can play at 0.5x / 1x / 2x.
-- **Bounded log** — slice to 50 entries to avoid runaway re-renders.
-- **Event tone palette** — see [REFERENCE.md#tonal-palette-for-event-logs](REFERENCE.md#tonal-palette-for-event-logs).
-
-For the full reference implementation, look at `src/content/posts/multi-level-caching-on-modal/CacheSimulator.tsx` on the [kayvane1/blog](https://github.com/kayvane1/blog) repo. It's around 650 lines but cleanly separated into:
-
-- Top: types, constants, shared Tailwind class strings.
-- Middle: the single `CacheSimulator` component with all hooks + handlers + JSX.
-- Bottom: small co-located helpers (`Connectors`, `Lane`, `SharedLayer`, `Stat`, `LegendDot`).
-
-Use it as a starting point, not a target — most simulators don't need that surface area.
+- **`useRef` mirror of state.** Async handlers that read state need a ref because the closure over `state` is stale between renders. Update the ref in a `useEffect` keyed on the state.
+- **`busy` lock.** Prevents double-fires when the user mashes a button mid-animation. Disable every action button on `busy`.
+- **`tick` with speed multiplier.** Lets users replay your animation at 0.5x / 1x / 2x without rewriting the timing math.
+- **Bounded log.** Slice to 50 entries on every push. Without this, a long-running interaction will accumulate state forever and React re-renders will get slow.
+- **Event tone palette.** Four standard tones (info / hit / miss + one for coordination) keep the visual language consistent across multiple simulators. Full palette in [REFERENCE.md](REFERENCE.md#tonal-palette-for-event-logs).
+- **Co-located helpers stay at the bottom of the file.** Big simulators benefit from small `Stat`, `LegendDot`, `Lane`-type sub-components defined in the same file as the main component. Move them to bundle-local files only when one of them grows past ~50 lines.

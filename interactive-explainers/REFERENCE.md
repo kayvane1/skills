@@ -15,7 +15,7 @@ src/content/posts/<slug>/
 
 A bundle owns *everything* the post needs. The deletion test (Ousterhout): if you delete `src/content/posts/<slug>/`, the post and every supporting file go with it. That's the invariant to preserve.
 
-**Shared primitives** (used across two or more bundles) move to `src/components/` and out of the bundle. `<Tldr />` is the canonical example — every post imports it from `src/components/Tldr.tsx`.
+**Shared primitives** (used across two or more bundles) move out of the bundle to your project's site-wide components directory (typically `src/components/`). A `<Tldr />` callout used by every post is the canonical example — pull it out the moment a second post wants it.
 
 ## MDX import paths
 
@@ -30,18 +30,18 @@ import { MyDiagram } from "./MyDiagram";                // bundle-local componen
 
 ```yaml
 ---
-title: "Doing Things: A Guide"   # quoted because of the colon
+title: "Doing Things: A Guide"   # quote any value containing ':'
 date: 2026-05-20
 summary: A one-liner.            # also quote if it contains ':'
-tags: [foo, bar]                 # tags must exist in src/lib/tags.ts
+tags: [foo, bar]                 # tags should be validated by your post loader
 github: https://github.com/...
 readingTime: 8 min               # optional override
 ---
 ```
 
-- Validated by Zod (`src/lib/posts.ts` → `FrontmatterSchema`). Typos surface as load-time errors.
-- Tags not in the `Tag` enum are silently dropped. Add new ones to `src/lib/tags.ts` before referencing them.
-- `readingTime` is auto-estimated from JSX-stripped MDX. Override only when the estimate is wrong (long code blocks, lots of embedded components).
+- Validate frontmatter with Zod at load time (e.g. a `FrontmatterSchema` in your post loader). Typos then surface as load-time errors, not silent missing fields.
+- If you maintain a tag allow-list (recommended — prevents typos and stray tags), tags not in the allow-list will be silently dropped. Add new tags to the allow-list before referencing them in a post.
+- Auto-estimate `readingTime` from JSX-stripped MDX source. Authors override it via the frontmatter field only when the estimate is wrong (long code blocks, lots of embedded components).
 
 ## Tailwind v4 traps
 
@@ -155,7 +155,7 @@ One transform string, no composition surprises.
 
 ### Keyframes for pulse / fanout effects
 
-Keyframes go in `src/styles.css` (Tailwind v4 picks them up globally):
+Keyframes go in your project's global stylesheet (Tailwind v4 picks them up globally):
 
 ```css
 @keyframes my-pulse {
@@ -335,4 +335,4 @@ When a figure renders but looks wrong:
 1. **Page returns 200, content present?** `curl http://localhost:<port>/posts/<slug>` and `grep` for known text from your figure. If the text is there, it's a CSS / hydration issue, not a render error.
 2. **Open the dev server log.** `Serialization error: Seroval Error` → loader returns a function (see TanStack Start gotchas). `YAMLParseError: Nested mappings...` → unquoted `:` in frontmatter.
 3. **Inspect rendered class strings.** `grep -oE 'class="[^"]*<bem-name>[^"]*"' rendered.html`. Confirm the active classes are present. If they are present but visually doing nothing → Tailwind v4 important / cascade issue → add `!` suffix.
-4. **Look at the deleted CSS via git.** If you migrated from BEM to Tailwind and the new version feels off, the old per-property `transition` / animation timings are in git history. `git show <commit-before-migration>:src/styles.css | grep -A20 <selector>`.
+4. **Look at the deleted CSS via git.** If you migrated from BEM (or any other CSS) to Tailwind and the new version feels off, the old per-property `transition` / animation timings are in git history. `git show <commit-before-migration>:<path-to-stylesheet> | grep -A20 <selector>`.
