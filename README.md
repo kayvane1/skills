@@ -1,17 +1,22 @@
 # skills
 
-Personal [Claude Code](https://docs.claude.com/en/docs/claude-code) skills.
+Personal AI coding agent skills. Format-compatible with anything that consumes a `SKILL.md` with frontmatter (Claude Code, Codex, etc.).
 
 ## Installing
 
-Clone into `~/.claude/skills/` (or symlink individual skills):
+Clone the repo, then symlink individual skills into your agent's skills directory:
 
 ```bash
-git clone git@github.com:kayvane1/skills.git ~/.claude/skills-repo
-ln -s ~/.claude/skills-repo/naming-things ~/.claude/skills/naming-things
+git clone git@github.com:kayvane1/skills.git ~/code/skills
+
+# Claude Code
+ln -s ~/code/skills/naming-things ~/.claude/skills/naming-things
+
+# Codex
+ln -s ~/code/skills/naming-things ~/.codex/skills/naming-things
 ```
 
-Skills are picked up automatically by Claude Code on next session.
+Adjust paths to match your setup.
 
 ## Skills
 
